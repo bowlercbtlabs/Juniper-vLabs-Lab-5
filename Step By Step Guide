@@ -189,6 +189,112 @@ of the IPs inside the IP Pool we defined. We see that this is true because the t
 Host3 (200.0.13.2) has an IP address of 1.1.1.3 or 1.1.1.0 as seen in the above output. The NAT rule hit count also
 increase by 5 packets, which is further confirmation that the NAT Policy is working.
 
-13) Congratulations, you have completed the lab!
+13) Last activity, lets redo the NAT Policy so that traffic sourced from the Host1 subnet (10.100.11.0/24) is translated
+and uses a different NAT policy than traffic sourced from the Host2 subnet (10.100.12.0/24).
+
+Lets start off by defining our new NAT pool, Pool2:
+
+jcluser@vSRX1# set security nat source pool Pool2 address 2.2.2.2/32 
+
+Lets create the new loopback interface to host the NAT traffic:
+
+jcluser@vSRX1# set interfaces lo0.0 family inet address 2.2.2.2/32 
+
+Lets delete the old NAT policy:
+
+delete security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST
+
+Lets create the new NAT policy:
+
+jcluser@vSRX1#
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule IP_POOL1_NAT match source-address 10.100.11.0/24
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule IP_POOL1_NAT match destination-address 0.0.0.0/0
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule IP_POOL1_NAT then source-nat pool Pool1
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule IP_POOL2_NAT match source-address 10.100.12.0/24
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule IP_POOL2_NAT match destination-address 0.0.0.0/0
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule IP_POOL2_NAT then source-nat pool Pool2
+
+Last off, lets create the route in Host3 to allow for return traffic to Host2 via the new loopback address (2.2.2.2/32)
+
+jcluser@Host3# set routing-options static route 2.2.2.2/32 next-hop 200.0.13.1 
+
+14) Lets test our ping traffic from Host1 and Host2 and see what happens now:
+
+jcluser@Host1> ping 200.0.13.2 rapid count 5    
+PING 200.0.13.2 (200.0.13.2): 56 data bytes
+!!!!!
+--- 200.0.13.2 ping statistics ---
+5 packets transmitted, 5 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 1.221/1.631/2.050/0.290 ms
+
+jcluser@vSRX1> show security flow session    
+Session ID: 391, Policy name: default-permit/5, State: Stand-alone, Timeout: 2, Valid
+  In: 10.100.11.2/28453 --> 200.0.13.2/0;icmp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 84, 
+  Out: 200.0.13.2/0 --> 1.1.1.3/6883;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 84, 
+
+Session ID: 392, Policy name: default-permit/5, State: Stand-alone, Timeout: 2, Valid
+  In: 10.100.11.2/28453 --> 200.0.13.2/1;icmp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 84, 
+  Out: 200.0.13.2/1 --> 1.1.1.0/11549;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 84, 
+
+
+
+
+jcluser@Host2> ping 200.0.13.2 rapid count 10   
+PING 200.0.13.2 (200.0.13.2): 56 data bytes
+!!!!!!!!!!
+--- 200.0.13.2 ping statistics ---
+10 packets transmitted, 10 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 1.274/1.791/2.641/0.370 ms
+
+
+jcluser@vSRX1> show security flow session    
+Session ID: 401, Policy name: default-permit/5, State: Stand-alone, Timeout: 2, Valid
+  In: 10.100.12.2/27173 --> 200.0.13.2/0;icmp, Conn Tag: 0x0, If: ge-0/0/1.0, Pkts: 1, Bytes: 84, 
+  Out: 200.0.13.2/0 --> 2.2.2.2/9739;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 84, 
+
+Session ID: 402, Policy name: default-permit/5, State: Stand-alone, Timeout: 2, Valid
+  In: 10.100.12.2/27173 --> 200.0.13.2/1;icmp, Conn Tag: 0x0, If: ge-0/0/1.0, Pkts: 1, Bytes: 84, 
+  Out: 200.0.13.2/1 --> 2.2.2.2/30184;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 84, 
+
+
+jcluser@vSRX1> show security nat source rule all    
+Total rules: 2
+Total referenced IPv4/IPv6 ip-prefixes: 4/0
+source NAT rule: IP_POOL1_NAT           Rule-set: INTERNAL_HOSTS_TO_UNTRUST
+  Rule-Id                    : 3
+  Rule position              : 1
+  From zone                  : trust
+  To zone                    : untrust
+  Match
+    Source addresses         : 10.100.11.0     - 10.100.11.255
+    Destination addresses    : 0.0.0.0         - 255.255.255.255
+  Action                        : Pool1
+    Persistent NAT type         : N/A 
+    Persistent NAT mapping type : address-port-mapping 
+    Inactivity timeout          : 0
+    Max session number          : 0
+  Translation hits           : 5
+    Successful sessions      : 5
+  Number of sessions         : 0
+source NAT rule: IP_POOL2_NAT           Rule-set: INTERNAL_HOSTS_TO_UNTRUST
+  Rule-Id                    : 4
+  Rule position              : 2
+  From zone                  : trust
+  To zone                    : untrust
+  Match
+    Source addresses         : 10.100.12.0     - 10.100.12.255
+    Destination addresses    : 0.0.0.0         - 255.255.255.255
+  Action                        : Pool2
+    Persistent NAT type         : N/A 
+    Persistent NAT mapping type : address-port-mapping 
+    Inactivity timeout          : 0
+    Max session number          : 0
+  Translation hits           : 10
+    Successful sessions      : 10
+  Number of sessions         : 10
+
+
+15) The traffic is now hitting the two different NAT rules based upon the source address match condition and therefore
+using different NAT Pools as intended. Congratulations, you have completed the lab!
 
 
