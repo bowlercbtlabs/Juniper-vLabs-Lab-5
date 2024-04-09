@@ -30,11 +30,10 @@ PING 200.0.13.2 (200.0.13.2): 56 data bytes
 
 4) We see that the pings have failed, lets do a security flow session on the vSRX to troubleshoot.
 
-jcluser@vSRX1> show security flow session | refresh    
----(refreshed at 2024-04-08 23:56:51 UTC)---
-Session ID: 256, Policy name: default-permit/5, State: Stand-alone, Timeout: 54, Valid
-  In: 10.100.11.2/9506 --> 200.0.13.2/0;icmp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 84, 
-  Out: 200.0.13.2/0 --> 10.100.11.2/9506;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 0, Bytes: 0, 
+jcluser@vSRX1> show security flow session 
+Session ID: 21, Policy name: default-permit/5, State: Stand-alone, Timeout: 54, Valid
+  In: 10.100.11.2/6434 --> 200.0.13.2/0;icmp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 84, 
+  Out: 200.0.13.2/0 --> 10.100.11.2/6434;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 0, Bytes: 0, 
 
 5) 5) We see that the vSRX is showing packets enter in from Host1, but we do not see any replies from Host3. Lets look at Host3's 
 routing table.
@@ -59,19 +58,32 @@ inet.0: 5 destinations, 5 routes (5 active, 0 holddown, 0 hidden)
 through fxp0.0 most likely for reachbility through the management network to the device. This is a normal configuration. Lets now 
 setup a NAT policy on the firewall to perform NAT so that traffic sourced from any inside private IP (10.100.0.0/16) uses a predifined
 Pool of IPs. This is common practice for companies who allocate an IP subnet to be used for their NAT policy for external reachability.
-Furthermore we will simulate that the subnet in which the pool of NAT IP's is being advertised to the External client (host3) by putting
-a static route in the route table.
+Furthermore we will simulate that the subnet in which the pool of NAT IP's is being advertised to the External client (Host3) by putting
+a static route in the route table on Host3.
 
-Add the static route inside Host3.
+Add the static route inside Host3:
 
-set routing-options static route 1.1.1.0/30 next-hop 200.0.13.1   
+jcluser@Host3# set routing-options static route 1.1.1.0/30 next-hop 200.0.13.1   
 
-Define the Pools:
+vSRX configuration:
+
+Define the Pool:
 
 set security nat source pool Pool1 address 1.1.1.0/30
 
+Define the interfaces that the pool will use, in this case we'll keep it simple and define the IPs on a loopback interface:
+
+set interfaces lo0 unit 0 family inet address 1.1.1.1/32
+set interfaces lo0 unit 0 family inet address 1.1.1.2/32
+set interfaces lo0 unit 0 family inet address 1.1.1.3/32
+set interfaces lo0 unit 0 family inet address 1.1.1.0/32
+
+Define the security zones the NAT policy should use:
+
 set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST from zone trust
 set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST to zone untrust
+
+Define the NAT Policy:
 
 set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule INTERFACE_NAT match source-address 10.100.0.0/16
 set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule INTERFACE_NAT match destination-address 0.0.0.0/0
