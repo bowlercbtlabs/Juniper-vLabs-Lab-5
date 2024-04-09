@@ -1,1 +1,66 @@
+Juniper vLabs Lab 5 (Network Address Translation, Source NAT to using IP Pools)
+
+Step By Step Guide:
+
+1) Login to vLabs and Reserve/Launch the Lab (should take a few minutes to start up).
+    - https://jlabs.juniper.net/vlabs/portal/zones-policies/
+
+2) Lets start by changing the IP addresses on the interfaces between the vSRX and Host3.
+
+Host3:
+delete interfaces ge-0/0/2.0 family inet address 10.100.13.2/24 
+set interfaces ge-0/0/2 unit 0 family inet address 200.0.13.2/30
+
+
+vSRX:
+delete interfaces ge-0/0/2.0 family inet address 10.100.13.1/24
+set interfaces ge-0/0/2 unit 0 family inet address 200.0.13.1/30
+
+3) We do this to simulate the connection between Host3 and the vSRX being a publicly routed, external subnet. Now lets add a 
+static route in Host1 so that it knows how to reach the external subnet of 200.0.13.0/30 through the firewall. We will also try 
+to ping from Host1 to Host3.
+
+jcluser@Host1# set routing-options static route 200.0.13.0/30 next-hop 10.100.11.1
+
+jcluser@Host1> ping 200.0.13.2 rapid count 5    
+PING 200.0.13.2 (200.0.13.2): 56 data bytes
+.....
+--- 200.0.13.2 ping statistics ---
+5 packets transmitted, 0 packets received, 100% packet loss
+
+4) We see that the pings have failed, lets do a security flow session on the vSRX to troubleshoot.
+
+jcluser@vSRX1> show security flow session | refresh    
+---(refreshed at 2024-04-08 23:56:51 UTC)---
+Session ID: 256, Policy name: default-permit/5, State: Stand-alone, Timeout: 54, Valid
+  In: 10.100.11.2/9506 --> 200.0.13.2/0;icmp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 84, 
+  Out: 200.0.13.2/0 --> 10.100.11.2/9506;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 0, Bytes: 0, 
+
+5) 5) We see that the vSRX is showing packets enter in from Host1, but we do not see any replies from Host3. Lets look at Host3's 
+routing table.
+
+jcluser@Host3> show route 
+
+inet.0: 5 destinations, 5 routes (5 active, 0 holddown, 0 hidden)
++ = Active Route, - = Last Active, * = Both
+
+0.0.0.0/0          *[Static/5] 00:39:23
+                    > to 100.123.0.1 via fxp0.0
+100.123.0.0/16     *[Direct/0] 00:39:23
+                    > via fxp0.0
+100.123.1.2/32     *[Local/0] 00:39:23
+                      Local via fxp0.0
+200.0.13.0/30       *[Direct/0] 00:26:41
+                    > via ge-0/0/2.0
+200.0.13.2/32       *[Local/0] 00:26:41
+                      Local via ge-0/0/2.0
+
+6) As we can see, Host3 doesn't have any private IP subnets listed in its route table, and the default route is setup in the lab 
+through fxp0.0 most likely for reachbility through the management network to the device. This is a normal configuration. Lets now 
+setup a NAT policy on the firewall to perform NAT on its external interface so that traffic sourced from Host1 (10.100.11.2) now 
+shows up sourced from the firewalls external interface towards Host3 in the UNTRUST zone (200.0.0.1 - ge-0/0/2.0).
+
+
+
+
 
