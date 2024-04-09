@@ -85,9 +85,60 @@ set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST to zone untrust
 
 Define the NAT Policy:
 
-set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule INTERFACE_NAT match source-address 10.100.0.0/16
-set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule INTERFACE_NAT match destination-address 0.0.0.0/0
-set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule INTERFACE_NAT then source-nat pool Pool1
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule IP_POOL_NAT match source-address 10.100.0.0/16
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule IP_POOL_NAT match destination-address 0.0.0.0/0
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule IP_POOL_NAT then source-nat pool Pool1
+
+7) Try to ping again from the internal Host1 client to the external client Host3:
+
+jcluser@Host1> ping 200.0.13.2 rapid count 5    
+PING 200.0.13.2 (200.0.13.2): 56 data bytes
+!!!!!
+--- 200.0.13.2 ping statistics ---
+5 packets transmitted, 5 packets received, 0% packet loss
+round-trip min/avg/max/stddev = 1.337/1.793/3.161/0.691 ms
+
+8) It works! Lets look at some show commands on the vSRX to verify connectivity:
+
+jcluser@vSRX1> show security flow session | refresh 
+---(refreshed at 2024-04-09 20:28:52 UTC)---
+Total sessions: 0
+---(refreshed at 2024-04-09 20:28:57 UTC)---
+Session ID: 100, Policy name: default-permit/5, State: Stand-alone, Timeout: 2, Valid
+  In: 10.100.11.2/23586 --> 200.0.13.2/0;icmp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 84, 
+  Out: 200.0.13.2/0 --> 1.1.1.2/24606;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 84, 
+
+Session ID: 101, Policy name: default-permit/5, State: Stand-alone, Timeout: 2, Valid
+  In: 10.100.11.2/23586 --> 200.0.13.2/1;icmp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 84, 
+  Out: 200.0.13.2/1 --> 1.1.1.3/14414;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 1, Bytes: 84, 
+
+jcluser@vSRX1> show security nat source rule IP_POOL_NAT 
+source NAT rule: IP_POOL_NAT            Rule-set: INTERNAL_HOSTS_TO_UNTRUST
+  Rule-Id                    : 1
+  Rule position              : 1
+  From zone                  : trust
+  To zone                    : untrust
+  Match
+    Source addresses         : 10.100.0.0      - 10.100.255.255
+    Destination addresses    : 0.0.0.0         - 255.255.255.255
+  Action                        : Pool1
+    Persistent NAT type         : N/A 
+    Persistent NAT mapping type : address-port-mapping 
+    Inactivity timeout          : 0
+    Max session number          : 0
+  Translation hits           : 10
+    Successful sessions      : 10
+  Number of sessions         : 0
+
+9) We can see from the security flow session command that the PING/ICMP traffic is hitting the NAT policy. The traffic
+from Host1 has a source of 10.100.11.2 as it enters into the firewall. It then hits the NAT policy and gets NATd to one
+of the IPs inside the IP Pool we defined. We see that this is true because the traffic coming back to the firewall from
+Host3 (200.0.13.2) has an IP address of 1.1.1.2 or 1.1.1.3 as seen in the above output. 
+
+We can also see from the "show security nat source rule" command that we are seeing hit counts on the rule, so we are 
+good to go now!
+
+10) 
 
 
 
