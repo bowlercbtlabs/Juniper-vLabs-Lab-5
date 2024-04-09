@@ -57,8 +57,25 @@ inet.0: 5 destinations, 5 routes (5 active, 0 holddown, 0 hidden)
 
 6) As we can see, Host3 doesn't have any private IP subnets listed in its route table, and the default route is setup in the lab 
 through fxp0.0 most likely for reachbility through the management network to the device. This is a normal configuration. Lets now 
-setup a NAT policy on the firewall to perform NAT on its external interface so that traffic sourced from Host1 (10.100.11.2) now 
-shows up sourced from the firewalls external interface towards Host3 in the UNTRUST zone (200.0.0.1 - ge-0/0/2.0).
+setup a NAT policy on the firewall to perform NAT so that traffic sourced from any inside private IP (10.100.0.0/16) uses a predifined
+Pool of IPs. This is common practice for companies who allocate an IP subnet to be used for their NAT policy for external reachability.
+Furthermore we will simulate that the subnet in which the pool of NAT IP's is being advertised to the External client (host3) by putting
+a static route in the route table.
+
+Add the static route inside Host3.
+
+set routing-options static route 1.1.1.0/30 next-hop 10.100.13.1  
+
+Define the Pools:
+
+set security nat source pool Pool1 address 1.1.1.0/30
+
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST from zone trust
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST to zone untrust
+
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule INTERFACE_NAT match source-address 10.100.0.0/16
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule INTERFACE_NAT match destination-address 0.0.0.0/0
+set security nat source rule-set INTERNAL_HOSTS_TO_UNTRUST rule INTERFACE_NAT then source-nat pool Pool1
 
 
 
