@@ -64,7 +64,7 @@ a static route in the route table.
 
 Add the static route inside Host3.
 
-set routing-options static route 1.1.1.0/30 next-hop 10.100.13.1  
+set routing-options static route 1.1.1.0/30 next-hop 200.0.13.1   
 
 Define the Pools:
 
