@@ -35,7 +35,7 @@ Session ID: 21, Policy name: default-permit/5, State: Stand-alone, Timeout: 54, 
   In: 10.100.11.2/6434 --> 200.0.13.2/0;icmp, Conn Tag: 0x0, If: ge-0/0/0.0, Pkts: 1, Bytes: 84, 
   Out: 200.0.13.2/0 --> 10.100.11.2/6434;icmp, Conn Tag: 0x0, If: ge-0/0/2.0, Pkts: 0, Bytes: 0, 
 
-5) 5) We see that the vSRX is showing packets enter in from Host1, but we do not see any replies from Host3. Lets look at Host3's 
+5) We see that the vSRX is showing packets enter in from Host1, but we do not see any replies from Host3. Lets look at Host3's 
 routing table.
 
 jcluser@Host3> show route 
@@ -138,8 +138,8 @@ Host3 (200.0.13.2) has an IP address of 1.1.1.2 or 1.1.1.3 as seen in the above 
 We can also see from the "show security nat source rule" command that we are seeing hit counts on the rule, so we are 
 good to go now!
 
-10) Lets try to ping from Host2 after we put in a static route to the destination to see if we see Host2 using the NAT 
-Policy/Rule as well:
+10) Lets try to ping from Host2 to Host3 after we put in a static route to the destination (for reachability) to see if 
+we see Host2 using the NAT Policy/Rule as well:
 
 jcluser@Host2# set routing-options static route 200.0.13.0/30 next-hop 10.100.12.1
 
