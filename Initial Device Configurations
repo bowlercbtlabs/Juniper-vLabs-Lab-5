@@ -29,9 +29,17 @@ set security screen ids-option untrust-screen tcp syn-flood destination-threshol
 set security screen ids-option untrust-screen tcp syn-flood queue-size 2000
 set security screen ids-option untrust-screen tcp syn-flood timeout 20
 set security screen ids-option untrust-screen tcp land
+set security policies from-zone trust to-zone trust policy default-permit match source-address any
+set security policies from-zone trust to-zone trust policy default-permit match destination-address any
+set security policies from-zone trust to-zone trust policy default-permit match application any
+set security policies from-zone trust to-zone trust policy default-permit then permit
+set security policies from-zone trust to-zone untrust policy default-permit match source-address any
+set security policies from-zone trust to-zone untrust policy default-permit match destination-address any
+set security policies from-zone trust to-zone untrust policy default-permit match application any
+set security policies from-zone trust to-zone untrust policy default-permit then permit
 set security zones security-zone trust host-inbound-traffic system-services any-service
-set security zones security-zone dmz interfaces ge-0/0/0.0
-set security zones security-zone dmz interfaces ge-0/0/1.0
+set security zones security-zone trust interfaces ge-0/0/0.0
+set security zones security-zone trust interfaces ge-0/0/1.0
 set security zones security-zone untrust interfaces ge-0/0/2.0
 set interfaces ge-0/0/0 unit 0 family inet address 10.100.11.1/24
 set interfaces ge-0/0/1 unit 0 family inet address 10.100.12.1/24
